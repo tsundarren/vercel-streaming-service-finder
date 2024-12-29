@@ -2,37 +2,21 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5001/api';
 
-// Function to fetch suggestions with streaming providers
-export const fetchSuggestions = async (title) => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/suggestions`, { title });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching suggestions:', error);
-    throw new Error('Failed to fetch movie suggestions');
-  }
-};
-
-// Function to fetch movie details
-export const fetchMovieDetails = async (title) => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/search`, { title });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching movie details:', error);
-    throw new Error('Failed to fetch movie details');
-  }
-};
-
 export const fetchDailyTopMovie = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/daily-top`);
-    return response.data;
+    const movie = response.data;
+    return {
+      title: movie.title || movie.name,
+      overview: movie.overview,
+      backdropUrl: `https://image.tmdb.org/t/p/original${movie.backdrop_path}`,
+    };
   } catch (error) {
     console.error('Error fetching daily top movie:', error);
     throw new Error('Failed to fetch daily top movie');
   }
 };
+
 
 // Function to fetch top streaming movies
 export const fetchTopStreamingMovies = async () => {

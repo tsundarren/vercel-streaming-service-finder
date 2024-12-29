@@ -28,7 +28,6 @@ const DailyBanner = () => {
       <div className="banner-content">
         <h1>{topMovie.title}</h1>
         <p>{topMovie.overview}</p>
-        <p>Release Date: {topMovie.release_date}</p>
       </div>
     </div>
   );

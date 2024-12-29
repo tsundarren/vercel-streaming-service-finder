@@ -3,7 +3,9 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const Media = require('./models/movie-cache'); // Updated import
+const DailyCache = require('./models/daily-cache');  // Import DailyCache model
+const WeeklyTrendingMovies = require('./models/weekly-trending-movies');
+const WeeklyTrendingShows = require('./models/weekly-trending-shows');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -41,51 +43,6 @@ const fetchFromAPI = async (endpoint, params) => {
   }
 };
 
-const fetchMediaData = async (title) => {
-  try {
-    const searchResult = await fetchFromAPI('/search/movie', { query: title });
-    const mediaId = searchResult.results[0]?.id;
-
-    if (!mediaId) throw new Error('Media not found');
-
-    const [details, providers] = await Promise.all([
-      fetchFromAPI(`/movie/${mediaId}`),
-      fetchFromAPI(`/movie/${mediaId}/watch/providers`)
-    ]);
-
-    const streamingServices = providers.results.US?.flatrate?.map(provider => ({
-      provider_name: provider.provider_name,
-      logoUrl: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
-    })) || [];
-
-    return {
-      title: details.title,
-      overview: details.overview,
-      release_date: details.release_date,
-      posterUrl: `https://image.tmdb.org/t/p/w500${details.poster_path}`,
-      streamingServices: getUniqueProviders(streamingServices),
-    };
-  } catch (error) {
-    throw new Error('Error fetching media data');
-  }
-};
-
-const fetchSuggestionsWithProviders = async (title) => {
-  const searchResult = await fetchFromAPI('/search/movie', { query: title });
-  const suggestions = searchResult.results.slice(0, 3);
-
-  return Promise.all(
-    suggestions.map(async (suggestion) => {
-      const providers = await fetchFromAPI(`/movie/${suggestion.id}/watch/providers`);
-      const streamingServices = providers.results.US?.flatrate?.map(provider => ({
-        provider_name: provider.provider_name,
-        logoUrl: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
-      })) || [];
-      return { ...suggestion, streamingServices: getUniqueProviders(streamingServices) };
-    })
-  );
-};
-
 const fetchContent = async (type, maxItems, timeFrame) => {
   let topContent = [];
   let page = 1;
@@ -116,57 +73,50 @@ const fetchContent = async (type, maxItems, timeFrame) => {
   return topContent;
 };
 
-const updateCache = async (type, mediaType, frequency) => {
+const updateCache = async (mediaType, frequency) => {
   try {
-    // Fetch the data from the API
-    const endpoint = `/trending/${mediaType}/${frequency}`;
-    const topContent = await fetchFromAPI(endpoint, { page: 1 }); // Assuming page 1 for simplicity
+    const isDaily = frequency === 'day';
+    const cacheModel = isDaily ? DailyCache : mediaType === 'movie' ? WeeklyTrendingMovies : WeeklyTrendingShows;
 
-    // Cache the results
-    const cacheModel = type === 'daily' ? DailyCache : WeeklyCache;
-    await cacheModel.deleteMany({}); // Clear existing cache
-    const cacheData = topContent.results.map(item => ({
-      title: item.title || item.name, // Handle both movies and shows
-      overview: item.overview,
+    console.log(`Updating ${isDaily ? 'daily' : 'weekly'} cache for ${mediaType}...`);
+
+    // Fetch trending content
+    const maxItems = isDaily ? 1 : 10;
+    const topContent = await fetchContent(mediaType, maxItems, frequency);
+
+    if (topContent.length === 0) {
+      console.warn('No content fetched for cache update.');
+      return;
+    }
+
+    console.log('Fetched content for cache update:', topContent);
+
+    // Clear existing cache
+    await cacheModel.deleteMany({});
+    console.log('Existing cache cleared.');
+
+    // Insert new cache
+    const cacheData = topContent.map(item => ({
+      title: item.title || item.name,
+      overview: item.overview || 'No overview available',
       release_date: item.release_date || item.first_air_date,
-      backdropUrl: `https://image.tmdb.org/t/p/original${item.backdrop_path}`,
-      streamingServices: getUniqueProviders(item.streamingServices || [])
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'defaultPosterUrl',
+      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : 'defaultBackdropUrl',
+      streamingServices: item.streamingServices || [],
     }));
-    await cacheModel.insertMany(cacheData);
 
-    console.log(`Cache updated for ${type} ${mediaType}`);
+    await cacheModel.insertMany(cacheData);
+    console.log(`${isDaily ? 'Daily' : 'Weekly'} ${mediaType} cache updated successfully.`);
   } catch (error) {
-    console.error(`Error updating ${type} cache:`, error);
+    console.error(`Error updating ${mediaType} cache:`, error);
   }
 };
 
+
+
+
+
 // Routes
-app.post('/api/search', async (req, res) => {
-  const { title } = req.body;
-  try {
-    let mediaItem = await Media.findOne({ title });
-    if (!mediaItem) {
-      mediaItem = await fetchMediaData(title);
-      await Media.create(mediaItem);
-    }
-    res.json(mediaItem);
-  } catch (error) {
-    console.error('Error fetching media data:', error);
-    res.status(500).send('Error fetching media data');
-  }
-});
-
-app.post('/api/suggestions', async (req, res) => {
-  const { title } = req.body;
-  try {
-    const suggestions = await fetchSuggestionsWithProviders(title);
-    res.json(suggestions);
-  } catch (error) {
-    console.error('Error fetching media suggestions:', error);
-    res.status(500).send('Error fetching media suggestions');
-  }
-});
-
 app.get('/api/providers/:mediaId', async (req, res) => {
   const { mediaId } = req.params;
   try {
@@ -184,15 +134,26 @@ app.get('/api/providers/:mediaId', async (req, res) => {
 
 app.get('/api/daily-top', async (req, res) => {
   try {
-    const topMovies = await fetchContent('movie', 1, 'day'); // Fetching only the top movie
+    // Check if data exists in the DailyCache
+    const cachedMovie = await DailyCache.findOne();
+    if (cachedMovie) {
+      console.log('Serving from cache:', cachedMovie.title);
+      return res.json(cachedMovie);
+    }
+
+    console.log('Cache is empty. Fetching and updating...');
+    
+    // If no cached data, fetch from API and update the cache
+    const topMovies = await fetchContent('movie', 1, 'day');
     if (topMovies.length > 0) {
       const topMovie = topMovies[0];
-      res.json({
-        title: topMovie.title,
-        backdropUrl: `https://image.tmdb.org/t/p/original${topMovie.backdrop_path}`,
-        overview: topMovie.overview,
-        release_date: topMovie.release_date,
-      });
+
+      // Cache the fetched movie
+      await updateCache('movie', 'day');
+      console.log('Daily cache updated successfully.');
+
+      // Respond with the top movie
+      res.json(topMovie);
     } else {
       res.status(404).send('No top daily movie found');
     }
@@ -202,10 +163,17 @@ app.get('/api/daily-top', async (req, res) => {
   }
 });
 
+
+
+
+// Update weekly cache for top movies and shows
 app.get('/api/trending-movies', async (req, res) => {
   try {
-    const topMovies = await fetchContent('movie', 10, 'week'); // Always weekly
+    const topMovies = await fetchContent('movie', 10, 'week'); // Always weekly for top 10 movies
     res.json(topMovies);
+
+    // Cache weekly movies in WeeklyCache
+    await updateCache('movie', 'week');
   } catch (error) {
     console.error('Error fetching top streaming movies:', error);
     res.status(500).send('Error fetching top streaming movies');
@@ -214,8 +182,11 @@ app.get('/api/trending-movies', async (req, res) => {
 
 app.get('/api/trending-shows', async (req, res) => {
   try {
-    const topShows = await fetchContent('tv', 10, 'week'); // Always weekly
+    const topShows = await fetchContent('tv', 10, 'week'); // Always weekly for top 10 shows
     res.json(topShows);
+
+    // Cache weekly shows in WeeklyCache
+    await updateCache('tv', 'week');
   } catch (error) {
     console.error('Error fetching top trending shows:', error);
     res.status(500).send('Error fetching top trending shows');
