@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5001;
 const API_KEY = 'fe7a337e0580140119903a698dc55a00';
 const BASE_URL = 'https://api.themoviedb.org/3';
 
-mongoose.connect('mongodb://localhost:27017/streaming-service-finder');
+mongoose.connect('mongodb://0.0.0.0:27017/streaming-service-finder');
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -78,7 +78,7 @@ const updateCache = async (mediaType, frequency) => {
     const isDaily = frequency === 'day';
     const cacheModel = isDaily ? DailyCache : mediaType === 'movie' ? WeeklyTrendingMovies : WeeklyTrendingShows;
 
-    console.log(`Updating ${isDaily ? 'daily' : 'weekly'} cache for ${mediaType}...`);
+    console.log(`Checking for updates in ${isDaily ? 'daily' : 'weekly'} cache for ${mediaType}...`);
 
     // Fetch trending content
     const maxItems = isDaily ? 1 : 10;
@@ -91,12 +91,24 @@ const updateCache = async (mediaType, frequency) => {
 
     console.log('Fetched content for cache update:', topContent);
 
-    // Clear existing cache
+    // Fetch existing cache
+    const existingCache = await cacheModel.find({});
+    const existingCacheTitles = existingCache.map(item => item.title || item.name);
+
+    // Compare fetched content with existing cache
+    const newContent = topContent.filter(item => !existingCacheTitles.includes(item.title || item.name));
+
+    if (newContent.length === 0) {
+      console.log('No new content to update in cache.');
+      return;
+    }
+
+    // Clear existing cache and insert new content
+    console.log('Updating cache with new content...');
     await cacheModel.deleteMany({});
     console.log('Existing cache cleared.');
 
-    // Insert new cache
-    const cacheData = topContent.map(item => ({
+    const cacheData = newContent.map(item => ({
       title: item.title || item.name,
       overview: item.overview || 'No overview available',
       release_date: item.release_date || item.first_air_date,
@@ -112,59 +124,22 @@ const updateCache = async (mediaType, frequency) => {
   }
 };
 
-
-
-
-
 // Routes
-app.get('/api/providers/:mediaId', async (req, res) => {
-  const { mediaId } = req.params;
-  try {
-    const providers = await fetchFromAPI(`/movie/${mediaId}/watch/providers`);
-    const streamingServices = providers.results.US?.flatrate?.map(provider => ({
-      provider_name: provider.provider_name,
-      logoUrl: `https://image.tmdb.org/t/p/original${provider.logo_path}`,
-    })) || [];
-    res.json(getUniqueProviders(streamingServices));
-  } catch (error) {
-    console.error('Error fetching streaming providers:', error);
-    res.status(500).send('Error fetching streaming providers');
-  }
-});
-
 app.get('/api/daily-top', async (req, res) => {
-  try {
-    // Check if data exists in the DailyCache
-    const cachedMovie = await DailyCache.findOne();
-    if (cachedMovie) {
-      console.log('Serving from cache:', cachedMovie.title);
-      return res.json(cachedMovie);
-    }
+  const topMovies = await fetchContent('movie', 1, 'day');
+  if (topMovies.length > 0) {
+    const topMovie = topMovies[0];
 
-    console.log('Cache is empty. Fetching and updating...');
-    
-    // If no cached data, fetch from API and update the cache
-    const topMovies = await fetchContent('movie', 1, 'day');
-    if (topMovies.length > 0) {
-      const topMovie = topMovies[0];
+    // Cache the fetched movie only if it's different
+    await updateCache('movie', 'day');
+    console.log('Daily cache checked and updated if needed.');
 
-      // Cache the fetched movie
-      await updateCache('movie', 'day');
-      console.log('Daily cache updated successfully.');
-
-      // Respond with the top movie
-      res.json(topMovie);
-    } else {
-      res.status(404).send('No top daily movie found');
-    }
-  } catch (error) {
-    console.error('Error fetching top daily movie:', error);
-    res.status(500).send('Error fetching top daily movie');
+    // Respond with the top movie
+    res.json(topMovie);
+  } else {
+    res.status(404).send('No top daily movie found');
   }
 });
-
-
-
 
 // Update weekly cache for top movies and shows
 app.get('/api/trending-movies', async (req, res) => {
@@ -172,7 +147,7 @@ app.get('/api/trending-movies', async (req, res) => {
     const topMovies = await fetchContent('movie', 10, 'week'); // Always weekly for top 10 movies
     res.json(topMovies);
 
-    // Cache weekly movies in WeeklyCache
+    // Cache weekly movies in WeeklyCache if different
     await updateCache('movie', 'week');
   } catch (error) {
     console.error('Error fetching top streaming movies:', error);
@@ -185,7 +160,7 @@ app.get('/api/trending-shows', async (req, res) => {
     const topShows = await fetchContent('tv', 10, 'week'); // Always weekly for top 10 shows
     res.json(topShows);
 
-    // Cache weekly shows in WeeklyCache
+    // Cache weekly shows in WeeklyCache if different
     await updateCache('tv', 'week');
   } catch (error) {
     console.error('Error fetching top trending shows:', error);
