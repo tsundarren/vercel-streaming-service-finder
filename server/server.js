@@ -20,7 +20,14 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.log('MongoDB connection error:', err));
 
-app.use(cors());
+// app.use(cors());
+app.use(cors(
+  {
+    origin: ["https://streaming-service-finder.vercel.app/"],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+))
 app.use(bodyParser.json());
 
 const getUniqueProviders = (providers) => {
