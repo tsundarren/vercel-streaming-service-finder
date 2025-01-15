@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 
-const API_BASE_URL = 'https://streaming-service-api.vercel.app/api';
+const API_BASE_URL = 'https://streaming-service-api.vercel.app/';
 
 export const fetchDailyTopMovie = async () => {
   try {
