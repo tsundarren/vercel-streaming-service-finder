@@ -1,3 +1,5 @@
+const express = require("express");
+const app = express();
 import axios from 'axios';
 import cors from 'cors';
 import { MongoClient } from 'mongodb';
@@ -12,25 +14,17 @@ const corsHandler = cors({
 const API_KEY = process.env.API_KEY;
 const BASE_URL = process.env.BASE_URL;
 
-export default async (req, res) => {
-  await new Promise((resolve, reject) => {
-    corsHandler(req, res, () => resolve());
+app.get('/api/daily-top', async (req, res) => {
+    const topMovies = await fetchContent('movie', 1, 'day');
+    if (topMovies.length > 0) {
+      const topMovie = topMovies[0];
+      await updateCache('movie', 'day');
+      res.json(topMovie);
+    } else {
+      res.status(404).send('No top daily movie found');
+    }
   });
 
-  if (req.method === 'GET') {
-    try {
-      const topMovies = await fetchContent('movie', 1, 'day');
-      if (topMovies.length > 0) {
-        const topMovie = topMovies[0];
-        await updateCache('movie', 'day');
-        res.status(200).json(topMovie);
-      } else {
-        res.status(404).send('No top daily movie found');
-      }
-    } catch (error) {
-      res.status(500).send('Error fetching daily top movie');
-    }
-  } else {
-    res.status(405).send('Method Not Allowed');
-  }
-};
+app.listen(3000, () => console.log("Server ready on port 3000."));
+
+module.exports = app;
