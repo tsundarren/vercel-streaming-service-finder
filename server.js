@@ -1,5 +1,4 @@
-require('dotenv').config()
-console.log(process.env) // remove this after you've confirmed it is working
+require('dotenv').config({ path: '.env.local' });
 
 const express = require('express');
 const axios = require('axios');
@@ -17,7 +16,7 @@ const MONGO_URI = process.env.MONGODB_URI;
 const API_KEY = process.env.API_KEY;
 const BASE_URL = process.env.BASE_URL;
 
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.log('MongoDB connection error:', err));
 
@@ -43,11 +42,14 @@ const getUniqueProviders = (providers) => {
 const fetchFromAPI = async (endpoint, params) => {
   try {
     const response = await axios.get(`${BASE_URL}${endpoint}`, { params: { api_key: API_KEY, ...params } });
+    console.log('API Response:', response.data); // Log the entire response
     return response.data;
   } catch (error) {
+    console.error('API request failed:', error);
     throw new Error('API request failed');
   }
 };
+
 
 const fetchContent = async (type, maxItems, timeFrame) => {
   let topContent = [];
