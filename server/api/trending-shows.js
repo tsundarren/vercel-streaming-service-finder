@@ -1,13 +1,21 @@
-// /api/trendingShows.js
-const { fetchContent, updateCache } = require('../services/cacheUtils');
+import { waitUntil } from '@vercel/functions';  // Import waitUntil
+import { fetchContent, updateCache } from '../services/cacheUtils';  // Correct import
 
-module.exports = async (req, res) => {
+export async function GET(request) {
   try {
     const topShows = await fetchContent('tv', 10, 'week');
-    await updateCache('tv', 'week');
-    return res.status(200).json(topShows);
+
+    // Use waitUntil to handle the background task asynchronously
+    waitUntil(updateCache('tv', 'week'));
+
+    return new Response(JSON.stringify(topShows), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error) {
     console.error('Error fetching top trending shows:', error);
-    return res.status(500).send('Error fetching top trending shows');
+    return new Response('Error fetching top trending shows', { status: 500 });
   }
-};
+}
