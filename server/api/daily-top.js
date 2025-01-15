@@ -1,4 +1,5 @@
-import { fetchContent, updateCache } from '../utils';
+import { fetchContent } from './fetchcontent';
+import { updateCache } from './updatecache';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
