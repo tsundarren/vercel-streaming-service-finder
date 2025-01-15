@@ -19,7 +19,7 @@ const Trending = () => {
 
   return (
     <div>
-      <h2 className="divider">Trending Movies</h2>
+      <h2 className="divider">Trending Movies of the Week</h2>
       <div className="trending-container">
         {topMovies.map((movie) => (
           <div key={movie.id} className="movie-card">
@@ -46,7 +46,7 @@ const Trending = () => {
         ))}
       </div>
 
-      <h2 className="divider">Trending Series</h2>
+      <h2 className="divider">Trending Series of the Week</h2>
       <div className="trending-container">
         {topShows.map((show) => (
           <div key={show.id} className="movie-card">

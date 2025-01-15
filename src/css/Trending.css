@@ -1,14 +1,16 @@
 .trending-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-  gap: 15px; 
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 15px;
   margin: 0px 0;
-  padding-left: 3rem; 
+  padding-left: 3rem;
   padding-right: 3rem;
+  justify-content: space-between; /* Distribute cards evenly */
+  overflow-x: auto;  /* Add horizontal scrolling */
 }
 
 .divider {
-  padding-left: 3rem; 
+  padding-left: 3rem;
   font-size: 1.5rem;
 }
 
@@ -16,6 +18,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: calc(100% / 10 - 15px);  /* Scale to 10 items in one row */
+  min-width: 200px;  /* Ensure minimum width for each card */
 }
 
 .poster-container {
@@ -37,7 +41,7 @@
   bottom: 5px;
   right: 5px;
   display: flex;
-  gap: px;
+  gap: 5px;
 }
 
 .service-logo {
