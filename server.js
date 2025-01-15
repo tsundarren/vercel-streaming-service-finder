@@ -1,3 +1,6 @@
+require('dotenv').config()
+console.log(process.env) // remove this after you've confirmed it is working
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -10,10 +13,13 @@ const WeeklyTrendingShows = require('./models/weekly-trending-shows');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-const API_KEY = 'fe7a337e0580140119903a698dc55a00';
-const BASE_URL = 'https://api.themoviedb.org/3';
+const MONGO_URI = process.env.MONGODB_URI;
+const API_KEY = process.env.API_KEY;
+const BASE_URL = process.env.BASE_URL;
 
-// mongoose.connect('mongodb://0.0.0.0:27017/streaming-service-finder');
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.log('MongoDB connection error:', err));
 
 app.use(cors());
 app.use(bodyParser.json());
