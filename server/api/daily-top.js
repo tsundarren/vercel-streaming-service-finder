@@ -1,21 +1,12 @@
-import { waitUntil } from '@vercel/functions';
-import { fetchContent, updateCache } from '../services/cacheUtils';  // Correct import
+import { fetchContent, updateCache } from '../../server/services/cacheUtils'; // Adjust the path as needed
 
 export async function GET(request) {
   try {
     const topMovies = await fetchContent('movie', 1, 'day');
     if (topMovies.length > 0) {
       const topMovie = topMovies[0];
-
-      // Use waitUntil to handle background tasks asynchronously
-      waitUntil(updateCache('movie', 'day'));
-
-      return new Response(JSON.stringify(topMovie), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      await updateCache('movie', 'day');
+      return new Response(JSON.stringify(topMovie), { status: 200 });
     } else {
       return new Response('No top daily movie found', { status: 404 });
     }
