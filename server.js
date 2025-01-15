@@ -3,7 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const DailyCache = require('./models/daily-cache');  // Import DailyCache model
+const DailyCache = require('./models/daily-cache');
 const WeeklyTrendingMovies = require('./models/weekly-trending-movies');
 const WeeklyTrendingShows = require('./models/weekly-trending-shows');
 
@@ -78,36 +78,19 @@ const updateCache = async (mediaType, frequency) => {
     const isDaily = frequency === 'day';
     const cacheModel = isDaily ? DailyCache : mediaType === 'movie' ? WeeklyTrendingMovies : WeeklyTrendingShows;
 
-    console.log(`Checking for updates in ${isDaily ? 'daily' : 'weekly'} cache for ${mediaType}...`);
-
-    // Fetch trending content
     const maxItems = isDaily ? 1 : 10;
     const topContent = await fetchContent(mediaType, maxItems, frequency);
 
-    if (topContent.length === 0) {
-      console.warn('No content fetched for cache update.');
-      return;
-    }
+    if (topContent.length === 0) return;
 
-    console.log('Fetched content for cache update:', topContent);
-
-    // Fetch existing cache
     const existingCache = await cacheModel.find({});
     const existingCacheTitles = existingCache.map(item => item.title || item.name);
 
-    // Compare fetched content with existing cache
     const newContent = topContent.filter(item => !existingCacheTitles.includes(item.title || item.name));
 
-    if (newContent.length === 0) {
-      console.log('No new content to update in cache.');
-      return;
-    }
+    if (newContent.length === 0) return;
 
-    // Clear existing cache and insert new content
-    console.log('Updating cache with new content...');
     await cacheModel.deleteMany({});
-    console.log('Existing cache cleared.');
-
     const cacheData = newContent.map(item => ({
       title: item.title || item.name,
       overview: item.overview || 'No overview available',
@@ -118,52 +101,38 @@ const updateCache = async (mediaType, frequency) => {
     }));
 
     await cacheModel.insertMany(cacheData);
-    console.log(`${isDaily ? 'Daily' : 'Weekly'} ${mediaType} cache updated successfully.`);
   } catch (error) {
     console.error(`Error updating ${mediaType} cache:`, error);
   }
 };
 
-// Routes
 app.get('/api/daily-top', async (req, res) => {
   const topMovies = await fetchContent('movie', 1, 'day');
   if (topMovies.length > 0) {
     const topMovie = topMovies[0];
-
-    // Cache the fetched movie only if it's different
     await updateCache('movie', 'day');
-    console.log('Daily cache checked and updated if needed.');
-
-    // Respond with the top movie
     res.json(topMovie);
   } else {
     res.status(404).send('No top daily movie found');
   }
 });
 
-// Update weekly cache for top movies and shows
 app.get('/api/trending-movies', async (req, res) => {
   try {
-    const topMovies = await fetchContent('movie', 10, 'week'); // Always weekly for top 10 movies
+    const topMovies = await fetchContent('movie', 10, 'week');
     res.json(topMovies);
-
-    // Cache weekly movies in WeeklyCache if different
     await updateCache('movie', 'week');
   } catch (error) {
-    console.error('Error fetching top streaming movies:', error);
     res.status(500).send('Error fetching top streaming movies');
   }
 });
 
 app.get('/api/trending-shows', async (req, res) => {
   try {
-    const topShows = await fetchContent('tv', 10, 'week'); // Always weekly for top 10 shows
+    const topShows = await fetchContent('tv', 10, 'week');
     res.json(topShows);
-
-    // Cache weekly shows in WeeklyCache if different
     await updateCache('tv', 'week');
   } catch (error) {
-    console.error('Error fetching top trending shows:', error);
     res.status(500).send('Error fetching top trending shows');
   }
 });
