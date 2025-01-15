@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5001;
 const API_KEY = 'fe7a337e0580140119903a698dc55a00';
 const BASE_URL = 'https://api.themoviedb.org/3';
 
-mongoose.connect('mongodb://0.0.0.0:27017/streaming-service-finder');
+// mongoose.connect('mongodb://0.0.0.0:27017/streaming-service-finder');
 
 app.use(cors());
 app.use(bodyParser.json());
