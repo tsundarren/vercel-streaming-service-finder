@@ -1,10 +1,26 @@
-import { fetchContent, updateCache } from '../../server/services/cacheUtils'; // Adjust the path as needed
+import TrendingCache from '../../server/models/TrendingCache'; 
+import { fetchContent, updateCache } from '../../server/services/cacheUtils';
 
 export async function GET(request) {
   try {
-    const topMovies = await fetchContent('movie', 10, 'week'); // Fetch 10 movies for the week
+    const cachedData = await TrendingCache.findOne({});
+
+    if (cachedData) {
+      console.log('Using cached trending movies data');
+      return new Response(JSON.stringify(cachedData), { status: 200 });
+    }
+
+    const topMovies = await fetchContent('movie', 10, 'week');
     if (topMovies.length > 0) {
       await updateCache('movie', 'week');
+
+      const newCacheData = new TrendingCache({
+        movies: topMovies,
+        fetchedAt: new Date(),
+      });
+
+      await newCacheData.save(); 
+
       return new Response(JSON.stringify(topMovies), { status: 200 });
     } else {
       return new Response('No trending movies found', { status: 404 });
