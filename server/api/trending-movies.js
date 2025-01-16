@@ -1,25 +1,30 @@
-import TrendingCache from '../../server/models/TrendingCache'; 
-import { fetchContent, updateCache } from '../../server/services/cacheUtils';
+import WeeklyTrendingMovies from '../../server/models/WeeklyTrendingMovies'; // Import your model
+import { fetchContent, updateCache } from '../../server/services/cacheUtils'; // Adjust the path as needed
 
 export async function GET(request) {
   try {
-    const cachedData = await TrendingCache.findOne({});
+    // 1. Check if there is cached data for trending movies
+    const cachedData = await WeeklyTrendingMovies.findOne({});
 
+    // 2. If cache exists, return cached data
     if (cachedData) {
       console.log('Using cached trending movies data');
       return new Response(JSON.stringify(cachedData), { status: 200 });
     }
 
-    const topMovies = await fetchContent('movie', 10, 'week');
+    // 3. If no cache, fetch trending movies data
+    const topMovies = await fetchContent('movie', 10, 'week'); // Fetch top 10 movies for the week
     if (topMovies.length > 0) {
-      await updateCache('movie', 'week');
-
-      const newCacheData = new TrendingCache({
-        movies: topMovies,
-        fetchedAt: new Date(),
+      // 4. Save fresh data into cache
+      const newCacheData = new WeeklyTrendingMovies({
+        title: topMovies[0].title,
+        overview: topMovies[0].overview,
+        release_date: topMovies[0].release_date,
+        posterUrl: `https://image.tmdb.org/t/p/original${topMovies[0].poster_path}`,
+        streamingServices: topMovies[0].streamingServices,
       });
 
-      await newCacheData.save(); 
+      await newCacheData.save(); // Save fresh data to cache
 
       return new Response(JSON.stringify(topMovies), { status: 200 });
     } else {
