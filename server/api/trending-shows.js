@@ -3,28 +3,31 @@ import { fetchContent, updateCache } from '../../server/services/cacheUtils'; //
 
 export async function GET(request) {
   try {
-    // 1. Check if there is cached data for trending shows
-    const cachedData = await WeeklyTrendingShows.findOne({});
+    // 1. Check if there are cached entries for trending shows
+    const cachedData = await WeeklyTrendingShows.find({}); // Find all cached data
 
-    // 2. If cache exists, return cached data
-    if (cachedData) {
+    // 2. If there are already cached entries, check if they are sufficient
+    if (cachedData.length === 10) {
       console.log('Using cached trending shows data');
       return new Response(JSON.stringify(cachedData), { status: 200 });
     }
 
-    // 3. If no cache, fetch trending shows data
+    // 3. If no sufficient cache, fetch trending shows data
     const topShows = await fetchContent('tv', 10, 'week'); // Fetch top 10 trending shows for the week
     if (topShows.length > 0) {
-      // 4. Save fresh data into cache
-      const newCacheData = new WeeklyTrendingShows({
-        title: topShows[0].title,
-        overview: topShows[0].overview,
-        release_date: topShows[0].release_date,
-        posterUrl: `https://image.tmdb.org/t/p/original${topShows[0].poster_path}`,
-        streamingServices: topShows[0].streamingServices,
-      });
+      // 4. Clear previous cache if it doesn't have sufficient data
+      await WeeklyTrendingShows.deleteMany({}); // Clear the cache (optional)
 
-      await newCacheData.save(); // Save fresh data to cache
+      // 5. Save fresh data into cache
+      const newCacheData = topShows.map(show => ({
+        title: show.title,
+        overview: show.overview,
+        release_date: show.release_date,
+        posterUrl: `https://image.tmdb.org/t/p/original${show.poster_path}`,
+        streamingServices: show.streamingServices,
+      }));
+
+      await WeeklyTrendingShows.insertMany(newCacheData); // Save all 10 shows into the cache
 
       return new Response(JSON.stringify(topShows), { status: 200 });
     } else {
