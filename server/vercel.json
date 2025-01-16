@@ -8,10 +8,6 @@
     ],
     "crons": [
       {
-        "path": "/api/daily-top",
-        "schedule": "0 5 * * *"
-      },
-      {
         "path": "/api/trending-movies",
         "schedule": "0 5 * * 1"
       },
