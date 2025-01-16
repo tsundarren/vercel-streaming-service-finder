@@ -8,12 +8,26 @@ const Trending = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const movies = await fetchTopStreamingMovies();
-      setTopMovies(movies);
+      // Check if the cache is available in localStorage or other method
+      const cachedMovies = JSON.parse(localStorage.getItem('trendingMovies'));
+      if (cachedMovies) {
+        setTopMovies(cachedMovies);  // Use cached data if available
+      } else {
+        const movies = await fetchTopStreamingMovies();
+        setTopMovies(movies);
+        localStorage.setItem('trendingMovies', JSON.stringify(movies));  // Save to cache
+      }
 
-      const shows = await fetchTopTrendingShows();
-      setTopShows(shows);
+      const cachedShows = JSON.parse(localStorage.getItem('trendingShows'));
+      if (cachedShows) {
+        setTopShows(cachedShows);  // Use cached data if available
+      } else {
+        const shows = await fetchTopTrendingShows();
+        setTopShows(shows);
+        localStorage.setItem('trendingShows', JSON.stringify(shows));  // Save to cache
+      }
     };
+
     fetchData();
   }, []);
 
