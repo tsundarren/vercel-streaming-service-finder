@@ -1,4 +1,4 @@
-import WeeklyTrendingShows from '../../server/models/WeeklyTrendingShows'; // Import your model
+import WeeklyTrendingShows from '../../server/models/weekly-trending-shows'; // Import your model
 import { fetchContent, updateCache } from '../../server/services/cacheUtils'; // Adjust the path as needed
 
 export async function GET(request) {

@@ -1,4 +1,4 @@
-import WeeklyTrendingMovies from '../../server/models/WeeklyTrendingMovies'; // Import your model
+import WeeklyTrendingMovies from '../../server/models/weekly-trending-movies'; // Import your model
 import { fetchContent, updateCache } from '../../server/services/cacheUtils'; // Adjust the path as needed
 
 export async function GET(request) {
